@@ -43,15 +43,128 @@
 // your app behaves.
 //______________________________________________________________________________
 
+// defines
+
+// macros
+#define BETWEEN(value, min, max) (value < max && value > min)
+#define BETWEEN_OR_EQ(value, min, max) (value <= max && value >= min)
+
+#define RED 1
+#define GREEN 2
+#define BLUE 3
+#define WHITE 4
+#define AMBER 5
+#define CYAN 6
+#define MAGENTA 7
+#define YELLOW 8
+
+#define BUTTONS_PER_ROW 10
+
+#define BOTTOM_ROWS_COUNT 1
+#define PAD_ROWS_COUNT 8
+#define TOP_ROWS_COUNT 1
+
+#define COLOR_ROWS_COUNT 3
+#define RESERVED_ROWS_COUNT (PAD_ROWS_COUNT - COLOR_ROWS_COUNT)
+
+#define BOTTOM_BUTTONS_COUNT (BOTTOM_ROWS_COUNT * BUTTONS_PER_ROW)
+#define COLOR_BUTTONS_COUNT (COLOR_ROWS_COUNT * BUTTONS_PER_ROW)
+#define RESERVED_BUTTONS_COUNT (RESERVED_ROWS_COUNT * BUTTONS_PER_ROW)
+#define TOP_BUTTONS_COUNT (TOP_ROWS_COUNT * BUTTONS_PER_ROW)
+
+// static buttons indizes
+#define RESET_BUTTON_INDEX_X 0
+#define SEND_BUTTON_INDEX_X 9
+
+// variables
+
+// colors    wht red grn blu amb wht cya mag yel wht
+u8 red[] = { 63, 63,  0,  0, 63, 63,  0, 63,  0, 63 };
+u8 grn[] = { 63,  0, 63,  0, 31, 63, 63,  0, 63, 63 };
+u8 blu[] = { 63,  0,  0, 63,  0, 63, 63, 63, 63, 63 };
+
+u8 preSelectedIndexX[PAD_ROWS_COUNT];
+u8 selectedIndexX[PAD_ROWS_COUNT];
+
 void app_surface_event(u8 type, u8 index, u8 value)
 {
 	switch (type)
 	{
 		case  TYPEPAD:
 		{
-			// example - light / extinguish pad LEDs, send MIDI
-			hal_plot_led(TYPEPAD, index, value, value, value);
-			hal_send_midi(DINMIDI, NOTEON | 0, index, value);
+			// bottom row
+			if (index <= BOTTOM_BUTTONS_COUNT)
+			{
+				// ignore index 0 and 9
+			}
+			
+			// color rows
+			else if (index <= BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT)
+			{
+				// foreach color row
+				for (int i=1; i<=COLOR_ROWS_COUNT; i++)
+				{
+					u8 indexX = index % BUTTONS_PER_ROW; 
+					u8 indexY = (index - indexX) / BUTTONS_PER_ROW;
+
+					switch(indexX)
+					{
+						case RESET_BUTTON_INDEX_X:
+							// logic
+							for (int j=1; j<BUTTONS_PER_ROW - 1; j++)
+							{
+								u8 colorButtonIndex = indexY * BUTTONS_PER_ROW + j;
+								hal_send_midi(DINMIDI, NOTEOFF, colorButtonIndex, 0);
+							}
+							preSelectedIndexX[indexY] = 0;
+							
+							// visualization
+							for (int j=0; j<BUTTONS_PER_ROW; j++)
+							{
+								u8 colorButtonIndex = indexY * BUTTONS_PER_ROW + j;
+								hal_plot_led(TYPEPAD, colorButtonIndex, red[j], grn[j], blu[j]);
+							}
+							break;
+
+						case SEND_BUTTON_INDEX_X: ;
+							// logic
+							u8 colorButtonIndexX = preSelectedIndexX[indexY];
+							
+							if (colorButtonIndexX == 0)
+								return;
+							
+							u8 colorButtonIndex = indexY * BUTTONS_PER_ROW + colorButtonIndexX;
+							hal_send_midi(DINMIDI, NOTEON, colorButtonIndex, 127);
+							
+							// visualization
+							hal_plot_led(TYPEPAD, index, red[colorButtonIndexX], grn[colorButtonIndexX], blu[colorButtonIndexX]);
+							break;
+
+						default:
+							// logic
+							preSelectedIndexX[indexY] = indexX;
+
+							// visualization
+							if(value > 0)
+								hal_plot_led(TYPEPAD, index, value, value, value);
+							else
+								hal_plot_led(TYPEPAD, index, red[indexX], grn[indexX], blu[indexX]);
+							break;
+					}
+				}
+			}
+
+			// reserved rows 
+			else if (index <= BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT + RESERVED_BUTTONS_COUNT)
+			{
+
+			}
+
+			// top row
+			else if (index <= BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT + RESERVED_BUTTONS_COUNT + TOP_BUTTONS_COUNT)
+			{
+				// ignore index 90 and 99
+			}
 		}
 		break;
 
@@ -126,10 +239,7 @@ void app_timer_event()
 	
 	if (++ms >= TICK_MS)
 	{
-		ms = 0;
-		
-		// send a clock pulse up the USB
-		hal_send_midi(USBSTANDALONE, MIDITIMINGCLOCK, 0, 0);
+
 	}
 }
 
@@ -137,7 +247,7 @@ void app_timer_event()
 
 void app_init()
 {
-    // example - light the LEDs to say hello!
+	// example - light the LEDs to say hello!
 	for (int i=0; i < 10; ++i)
 	{
 		for (int j=0; j < 10; ++j)
@@ -148,5 +258,11 @@ void app_init()
 
 			hal_plot_led(TYPEPAD, j*10 + i, r, b, g);
 		}
+	}
+	
+	for (int i=BOTTOM_BUTTONS_COUNT; i<=( TOP_BUTTONS_COUNT + COLOR_BUTTONS_COUNT ); i+=BUTTONS_PER_ROW)
+	{
+		u8 indexX = i % BUTTONS_PER_ROW;
+		hal_plot_led(TYPEPAD, i, red[indexX], grn[indexX], blu[indexX]); 
 	}
 }

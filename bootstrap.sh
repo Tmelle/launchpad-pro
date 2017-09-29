@@ -2,7 +2,7 @@
 
 # setup as described here: http://gnuarmeclipse.livius.net/blog/toolchain-install/#GNULinux
 # We're using Luna - need to update plugin install locations below if switching to Kepler etc.
-ECLIPSE_URL=http://mirror.netcologne.de/eclipse//technology/epp/downloads/release/luna/SR2/eclipse-cpp-luna-SR2-linux-gtk-x86_64.tar.gz
+ECLIPSE_URL=http://www.eclipse.org/downloads/download.php?file=/technology/epp/downloads/release/luna/SR2/eclipse-cpp-luna-SR2-linux-gtk-x86_64.tar.gz
 
 # latest GCC-ARM version
 GCC_ARM_URL=https://launchpad.net/gcc-arm-embedded/4.8/4.8-2014-q3-update/+download/gcc-arm-none-eabi-4_8-2014q3-20140805-linux.tar.bz2
