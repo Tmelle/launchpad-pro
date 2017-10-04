@@ -49,6 +49,9 @@
 #define BETWEEN(value, min, max) (value < max && value > min)
 #define BETWEEN_OR_EQ(value, min, max) (value <= max && value >= min)
 
+#define ACTIVE 1.0
+#define INACTIVE 0.1
+
 #define RED 1
 #define GREEN 2
 #define BLUE 3
@@ -63,25 +66,38 @@
 #define BOTTOM_ROWS_COUNT 1
 #define PAD_ROWS_COUNT 8
 #define TOP_ROWS_COUNT 1
+#define ROWS_COUNT (BOTTOM_ROWS_COUNT + PAD_ROWS_COUNT + TOP_ROWS_COUNT)
 
 #define COLOR_ROWS_COUNT 3
-#define RESERVED_ROWS_COUNT (PAD_ROWS_COUNT - COLOR_ROWS_COUNT)
+#define GOBO_ROWS_COUNT 3
+#define FOCUS_ROWS_COUNT 1
+#define POSITION_ROWS_COUNT 1
+#define SELECT_ROWS_COUNT (COLOR_ROWS_COUNT + GOBO_ROWS_COUNT + POSITION_ROWS_COUNT + FOCUS_ROWS_COUNT)
 
 #define BOTTOM_BUTTONS_COUNT (BOTTOM_ROWS_COUNT * BUTTONS_PER_ROW)
 #define COLOR_BUTTONS_COUNT (COLOR_ROWS_COUNT * BUTTONS_PER_ROW)
-#define RESERVED_BUTTONS_COUNT (RESERVED_ROWS_COUNT * BUTTONS_PER_ROW)
+#define GOBO_BUTTONS_COUNT (GOBO_ROWS_COUNT * BUTTONS_PER_ROW)
+#define FOCUS_BUTTONS_COUNT (FOCUS_ROWS_COUNT * BUTTONS_PER_ROW)
+#define POSITION_BUTTONS_COUNT (POSITION_ROWS_COUNT * BUTTONS_PER_ROW)
+#define SELECT_BUTTONS_COUNT (SELECT_ROWS_COUNT * BUTTONS_PER_ROW)
 #define TOP_BUTTONS_COUNT (TOP_ROWS_COUNT * BUTTONS_PER_ROW)
 
 // static buttons indizes
+#define SEND_ALL_BUTTON_INDEX 8
+
 #define RESET_BUTTON_INDEX_X 0
 #define SEND_BUTTON_INDEX_X 9
 
 // variables
 
 // colors    wht red grn blu amb wht cya mag yel wht
-u8 red[] = { 63, 63,  0,  0, 63, 63,  0, 63,  0, 63 };
+u8 red[] = { 63, 63,  0,  0, 63, 63,  0, 63, 63, 63 };
 u8 grn[] = { 63,  0, 63,  0, 31, 63, 63,  0, 63, 63 };
-u8 blu[] = { 63,  0,  0, 63,  0, 63, 63, 63, 63, 63 };
+u8 blu[] = { 63,  0,  0, 63,  0, 63, 63, 63,  0, 63 };
+
+u8 colorMapRed[ROWS_COUNT * BUTTONS_PER_ROW];
+u8 colorMapGrn[ROWS_COUNT * BUTTONS_PER_ROW];
+u8 colorMapBlu[ROWS_COUNT * BUTTONS_PER_ROW];
 
 u8 preSelectedIndexX[PAD_ROWS_COUNT];
 u8 selectedIndexX[PAD_ROWS_COUNT];
@@ -93,75 +109,66 @@ void app_surface_event(u8 type, u8 index, u8 value)
 		case  TYPEPAD:
 		{
 			// bottom row
-			if (index <= BOTTOM_BUTTONS_COUNT)
+			if (index < BOTTOM_BUTTONS_COUNT)
 			{
-				// ignore index 0 and 9
-			}
-			
-			// color rows
-			else if (index <= BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT)
-			{
-				// foreach color row
-				for (int i=1; i<=COLOR_ROWS_COUNT; i++)
+				if (index == SEND_ALL_BUTTON_INDEX)
 				{
-					u8 indexX = index % BUTTONS_PER_ROW; 
-					u8 indexY = (index - indexX) / BUTTONS_PER_ROW;
-
-					switch(indexX)
+					for (int indexY = BOTTOM_ROWS_COUNT; indexY < BOTTOM_ROWS_COUNT + SELECT_ROWS_COUNT; indexY++)
 					{
-						case RESET_BUTTON_INDEX_X:
-							// logic
-							for (int j=1; j<BUTTONS_PER_ROW - 1; j++)
-							{
-								u8 colorButtonIndex = indexY * BUTTONS_PER_ROW + j;
-								hal_send_midi(DINMIDI, NOTEOFF, colorButtonIndex, 0);
-							}
-							preSelectedIndexX[indexY] = 0;
-							
-							// visualization
-							for (int j=0; j<BUTTONS_PER_ROW; j++)
-							{
-								u8 colorButtonIndex = indexY * BUTTONS_PER_ROW + j;
-								hal_plot_led(TYPEPAD, colorButtonIndex, red[j], grn[j], blu[j]);
-							}
-							break;
+						u8 newSelectedIndexX = preSelectedIndexX[indexY];
 
-						case SEND_BUTTON_INDEX_X: ;
-							// logic
-							u8 colorButtonIndexX = preSelectedIndexX[indexY];
-							
-							if (colorButtonIndexX == 0)
-								return;
-							
-							u8 colorButtonIndex = indexY * BUTTONS_PER_ROW + colorButtonIndexX;
-							hal_send_midi(DINMIDI, NOTEON, colorButtonIndex, 127);
-							
-							// visualization
-							hal_plot_led(TYPEPAD, index, red[colorButtonIndexX], grn[colorButtonIndexX], blu[colorButtonIndexX]);
-							break;
+                                                if ( newSelectedIndexX == 0 )
+                                                        continue;
 
-						default:
-							// logic
-							preSelectedIndexX[indexY] = indexX;
-
-							// visualization
-							if(value > 0)
-								hal_plot_led(TYPEPAD, index, value, value, value);
-							else
-								hal_plot_led(TYPEPAD, index, red[indexX], grn[indexX], blu[indexX]);
-							break;
+                                                app_set_pre_selected_index(0, indexY);
+                                                app_set_selected_index(newSelectedIndexX, indexY);
+                                                break;
 					}
 				}
 			}
 
-			// reserved rows 
-			else if (index <= BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT + RESERVED_BUTTONS_COUNT)
+			// select rows
+			else if (index < BOTTOM_BUTTONS_COUNT + SELECT_BUTTONS_COUNT)
 			{
+				u8 indexX = index % BUTTONS_PER_ROW;
+				u8 indexY = (index - indexX) / BUTTONS_PER_ROW;
 
+				switch(indexX)
+				{
+					case RESET_BUTTON_INDEX_X: ;
+						if (value == 0)
+							break;
+						app_set_pre_selected_index(0, indexY);
+						app_set_selected_index(0, indexY);
+						break;
+
+					case SEND_BUTTON_INDEX_X: ;
+						if ( value == 0 )
+							break;
+
+						u8 newSelectedIndexX = preSelectedIndexX[indexY];
+
+						if ( newSelectedIndexX == 0 )
+							break;
+
+						app_set_pre_selected_index(0, indexY);
+						app_set_selected_index(newSelectedIndexX, indexY);
+						break;
+
+					default: ;
+						if ( indexX == selectedIndexX[indexY] )
+							break;
+
+						float intensity = value != 0 ? ACTIVE : INACTIVE;
+						hal_plot_led(TYPEPAD, index, colorMapRed[index] * intensity, colorMapGrn[index] * intensity, colorMapBlu[index] * intensity );
+						if (value != 0)
+							app_set_pre_selected_index(indexX, indexY);
+						break;
+				}
 			}
 
 			// top row
-			else if (index <= BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT + RESERVED_BUTTONS_COUNT + TOP_BUTTONS_COUNT)
+			else if (index < BOTTOM_BUTTONS_COUNT + SELECT_BUTTONS_COUNT + TOP_BUTTONS_COUNT)
 			{
 				// ignore index 90 and 99
 			}
@@ -205,13 +212,9 @@ void app_sysex_event(u8 port, u8 * data, u16 count)
 
 void app_aftertouch_event(u8 index, u8 value)
 {
-    // example - send poly aftertouch to MIDI ports
-	hal_send_midi(USBMIDI, POLYAFTERTOUCH | 0, index, value);
 
-    // example - set LED to white, brightness in proportion to pressure
-	hal_plot_led(TYPEPAD, index, value/2, value/2, value/2);
 }
-	
+
 //______________________________________________________________________________
 
 void app_cable_event(u8 type, u8 value)
@@ -233,36 +236,170 @@ void app_cable_event(u8 type, u8 value)
 void app_timer_event()
 {
 	// example - send MIDI clock at 125bpm
-#define TICK_MS 20
-	
-	static u8 ms = TICK_MS;
-	
-	if (++ms >= TICK_MS)
-	{
+#define TICK_MS_ON 0
+#define TICK_MS_OFF 500
+#define TICK_RESET 1000
 
+	static u16 ms = 0;
+
+	if (ms == TICK_MS_ON || ms == TICK_MS_OFF)
+	{
+		float intensity = ms == TICK_MS_ON ? ACTIVE : INACTIVE;
+		for ( int indexY = 1; indexY <= PAD_ROWS_COUNT; indexY++ )
+		{
+			u8 indexX = preSelectedIndexX[indexY];
+			if (indexX == 0)
+				continue;
+			u8 index = indexY * BUTTONS_PER_ROW + indexX;
+			hal_plot_led(TYPEPAD, index, colorMapRed[index] * intensity, colorMapGrn[index] * intensity, colorMapBlu[index] * intensity);
+		}
 	}
+
+	ms++;
+	if( ms >= TICK_RESET )
+		ms = 0;
+
 }
 
 //______________________________________________________________________________
 
 void app_init()
 {
-	// example - light the LEDs to say hello!
-	for (int i=0; i < 10; ++i)
-	{
-		for (int j=0; j < 10; ++j)
-		{
-			u8 r = i < 5 ? (MAXLED * (5-i))/5 : 0;
-			u8 g = i < 5 ? (MAXLED * i)/5 : (MAXLED * (10-i))/5;
-			u8 b = i < 5 ? 0 : (MAXLED * (i-5))/5;
+	app_init_color_map();
+	app_init_leds();
+}
 
-			hal_plot_led(TYPEPAD, j*10 + i, r, b, g);
+void app_init_color_map()
+{
+	// init color map
+	for (int index = 0; index < ( ROWS_COUNT * BUTTONS_PER_ROW ); index++)
+	{
+		u8 indexX = index % BUTTONS_PER_ROW;
+		u8 indexY = (index - indexX) / BUTTONS_PER_ROW;
+
+		hal_plot_led(TYPEPAD, index, 63, 63, 63);
+
+		if (index < BOTTOM_BUTTONS_COUNT)
+		{
+			colorMapRed[index] = index == SEND_ALL_BUTTON_INDEX ? 63 : 0;
+			colorMapGrn[index] = index == SEND_ALL_BUTTON_INDEX ? 63 : 0;
+			colorMapBlu[index] = index == SEND_ALL_BUTTON_INDEX ? 63 : 0;
+		}
+		else if (index < BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT)
+		{
+			colorMapRed[index] = red[indexX];
+			colorMapGrn[index] = grn[indexX];
+			colorMapBlu[index] = blu[indexX];
+                }
+		else if (index < BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT + GOBO_BUTTONS_COUNT)
+		{
+                        if (indexX != RESET_BUTTON_INDEX_X && indexX != SEND_BUTTON_INDEX_X)
+			{
+				colorMapRed[index] = 0;
+                        	colorMapGrn[index] = 63;
+                        	colorMapBlu[index] = 63;
+			}
+			else
+			{
+				colorMapRed[index] = 63;
+				colorMapGrn[index] = 63;
+				colorMapBlu[index] = 63;
+			}
+                }
+		else if (index < BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT + GOBO_BUTTONS_COUNT + FOCUS_BUTTONS_COUNT)
+                {
+			if (indexX != RESET_BUTTON_INDEX_X && indexX != SEND_BUTTON_INDEX_X)
+			{
+				colorMapRed[index] = 0;
+				colorMapGrn[index] = 63;
+				colorMapBlu[index] = 31;
+			}
+			else
+			{
+				colorMapRed[index] = 63;
+				colorMapGrn[index] = 63;
+				colorMapBlu[index] = 63;
+			}
+		}
+		else if (index < BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT + GOBO_BUTTONS_COUNT + FOCUS_BUTTONS_COUNT + POSITION_BUTTONS_COUNT)
+                {
+			if (indexX != RESET_BUTTON_INDEX_X && indexX != SEND_BUTTON_INDEX_X)
+			{
+				colorMapRed[index] = 63;
+				colorMapGrn[index] = 0;
+				colorMapBlu[index] = 0;
+			}
+			else
+			{
+				colorMapRed[index] = 63;
+				colorMapGrn[index] = 63;
+				colorMapBlu[index] = 63;
+			}
+		}
+		else if (index < BOTTOM_BUTTONS_COUNT + SELECT_BUTTONS_COUNT  + TOP_BUTTONS_COUNT)
+		{
+			colorMapRed[index] = 0;
+			colorMapGrn[index] = 0;
+			colorMapBlu[index] = 0;
 		}
 	}
-	
-	for (int i=BOTTOM_BUTTONS_COUNT; i<=( TOP_BUTTONS_COUNT + COLOR_BUTTONS_COUNT ); i+=BUTTONS_PER_ROW)
+}
+
+void app_init_leds()
+{
+	for (int index = 0; index < ( ROWS_COUNT * BUTTONS_PER_ROW ); index++)
 	{
-		u8 indexX = i % BUTTONS_PER_ROW;
-		hal_plot_led(TYPEPAD, i, red[indexX], grn[indexX], blu[indexX]); 
+		hal_plot_led(TYPEPAD, index, colorMapRed[index] * INACTIVE, colorMapGrn[index] * INACTIVE, colorMapBlu[index] * INACTIVE);
 	}
+}
+
+void app_set_selected_index(u8 indexX, u8 indexY)
+{
+	// logic
+	u8 oldSelectedIndexX = selectedIndexX[indexY];
+	u8 oldSelectedIndex = indexY * BUTTONS_PER_ROW + oldSelectedIndexX;
+
+	u8 newSelectedIndexX = indexX;
+	u8 newSelectedIndex = indexY * BUTTONS_PER_ROW + newSelectedIndexX;
+
+	u8 sendButtonIndexX = SEND_BUTTON_INDEX_X;
+	u8 sendButtonIndex = indexY * BUTTONS_PER_ROW + sendButtonIndexX;
+
+	selectedIndexX[indexY] = newSelectedIndexX;
+
+	// visualization
+	if (oldSelectedIndex != 0)
+		hal_plot_led(TYPEPAD, oldSelectedIndex, colorMapRed[oldSelectedIndex] * INACTIVE, colorMapGrn[oldSelectedIndex] * INACTIVE, colorMapBlu[oldSelectedIndex] * INACTIVE);
+
+	if (newSelectedIndexX != 0)
+	{
+		hal_plot_led(TYPEPAD, newSelectedIndex, colorMapRed[newSelectedIndex] * ACTIVE, colorMapGrn[newSelectedIndex] * ACTIVE, colorMapBlu[newSelectedIndex] * ACTIVE);
+		hal_plot_led(TYPEPAD, sendButtonIndex, colorMapRed[newSelectedIndex] * ACTIVE, colorMapGrn[newSelectedIndex] * ACTIVE, colorMapBlu[newSelectedIndex] * ACTIVE);
+	}
+	else
+		hal_plot_led(TYPEPAD, sendButtonIndex, colorMapRed[sendButtonIndex] * INACTIVE, colorMapGrn[sendButtonIndex] * INACTIVE, colorMapBlu[sendButtonIndex] * INACTIVE);
+
+	// midi
+	hal_send_midi(DINMIDI, NOTEOFF, oldSelectedIndex, 0);
+	if (newSelectedIndex != 0)
+		hal_send_midi(DINMIDI, NOTEON, newSelectedIndex, 127);
+}
+
+void app_set_pre_selected_index(u8 indexX, u8 indexY)
+{
+	// logic
+	u8 oldPreSelectedIndexX = preSelectedIndexX[indexY];
+	u8 oldPreSelectedIndex = indexY * BUTTONS_PER_ROW + oldPreSelectedIndexX;
+
+	u8 newPreSelectedIndexX = indexX;
+	u8 newPreSelectedIndex = indexY * BUTTONS_PER_ROW + newPreSelectedIndexX;
+
+	if (oldPreSelectedIndexX == newPreSelectedIndexX)
+		return;
+
+	preSelectedIndexX[indexY] = newPreSelectedIndexX;
+
+	// visualization
+	if ( oldPreSelectedIndexX != 0 && oldPreSelectedIndexX != selectedIndexX[indexY] )
+		hal_plot_led(TYPEPAD, oldPreSelectedIndex, colorMapRed[oldPreSelectedIndex] * INACTIVE, colorMapGrn[oldPreSelectedIndex] * INACTIVE, colorMapBlu[oldPreSelectedIndex] * INACTIVE);
 }

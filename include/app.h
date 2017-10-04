@@ -158,7 +158,16 @@ void app_surface_event(u8 type, u8 index, u8 value);
  * @param index - The index of the pad, as detailed at the start of this file.
  * @param value - the aftertouch value in [0, 127]
  */
+
+void app_init_color_map();
+
+void app_init_leds();
+
 void app_aftertouch_event(u8 index, u8 value);
+
+void app_set_selected_index(u8 indexX, u8 indexY);
+
+void app_set_pre_selected_index(u8 indexX, u8 indexY);
 
 
 #endif
