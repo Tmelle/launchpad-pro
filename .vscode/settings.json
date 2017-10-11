@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "atomic": "c",
+        "functional": "c",
+        "locale": "c",
+        "memory": "c",
+        "system_error": "c",
+        "tuple": "c",
+        "type_traits": "c"
+    }
+}
