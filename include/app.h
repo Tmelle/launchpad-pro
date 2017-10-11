@@ -90,7 +90,7 @@ void hal_send_midi(u8 port, u8 status, u8 data1, u8 data2);
  * @param data - pointer to array containing sysex data. Can be on the stack.
  * @param length - must not exceed 320 bytes, behaviour undefined if it does.
  */
-void hal_send_sysex(u8 port, const u8* data, u16 length);
+void hal_send_sysex(u8 port, const u8 *data, u16 length);
 
 // ____________________________________________________________________________
 //
@@ -128,7 +128,7 @@ void app_midi_event(u8 port, u8 status, u8 d1, u8 d2);
  * @param data - pointer to array containing sysex data.  Only valid in the scope of this callback.
  * @param length - the amount of data received.
  */
-void app_sysex_event(u8 port, u8 * data, u16 count);
+void app_sysex_event(u8 port, u8 *data, u16 count);
 
 /**
  * Called when a MIDI DIN breakout cable is connected or disconnected.  Note that
@@ -165,9 +165,10 @@ void app_init_leds();
 
 void app_aftertouch_event(u8 index, u8 value);
 
-void app_set_selected_index(u8 indexX, u8 indexY);
+void app_set_selected_index(u8 indexX, u8 indexY, u8 reset);
 
-void app_set_pre_selected_index(u8 indexX, u8 indexY);
+void app_set_pre_selected_index(u8 indexX, u8 indexY, u8 reset);
 
+u8 app_get_selection(u8 indexX, u8 indexY);
 
 #endif
