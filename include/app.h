@@ -165,10 +165,25 @@ void app_init_leds();
 
 void app_aftertouch_event(u8 index, u8 value);
 
-void app_set_selected_index(u8 indexX, u8 indexY, u8 reset);
+void app_reset_selected_index(u8 indexY, u8 selection);
+void app_set_selected_index(u8 indexX, u8 indexY, u8 selection);
+void app_reset_pre_selected_index(u8 indexY, u8 selection);
+void app_set_pre_selected_index(u8 indexX, u8 indexY, u8 selection);
 
-void app_set_pre_selected_index(u8 indexX, u8 indexY, u8 reset);
 
 u8 app_get_selection(u8 indexX, u8 indexY);
+// events 
+void app_handle_button_press(u8 index, u8 value);
+
+void app_handle_bottom_button_press(u8 index, u8 indexX, u8 indexY, u8 value);
+void app_handle_send_all_button_press(u8 index, u8 indexX, u8 indexY, u8 value);
+void app_handle_reset_all_button_press(u8 index, u8 indexX, u8 indexY, u8 value);
+
+void app_handle_top_button_press(u8 index, u8 indexX, u8 indexY, u8 value);
+
+void app_handle_selection_button_press(u8 index, u8 indexX, u8 indexY, u8 value);
+void app_handle_value_button_press(u8 index, u8 indexX, u8 indexY, u8 value);
+void app_handle_send_button_press(u8 index, u8 indexX, u8 indexY, u8 value);
+void app_handle_reset_button_press(u8 index, u8 indexX, u8 indexY, u8 value);
 
 #endif

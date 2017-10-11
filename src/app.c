@@ -113,117 +113,13 @@ void app_surface_event(u8 type, u8 index, u8 value)
 	switch (type)
 	{
 	case TYPEPAD:
-	{
-		// bottom row
-		if (index < BOTTOM_BUTTONS_COUNT)
-		{
-			if (index == SEND_ALL_BUTTON_INDEX)
-			{
-				if (value == 0)
-					break;
-
-				for (int indexY = BOTTOM_ROWS_COUNT; indexY < BOTTOM_ROWS_COUNT + SELECT_ROWS_COUNT; indexY++)
-				{
-					for (u8 selection = 0; selection < selectionsCount[indexY]; selection++)
-					{
-						u8 newSelectedIndexX = preSelectedIndexX[indexY][selection];
-						if (newSelectedIndexX == 0)
-							continue;
-
-						app_set_pre_selected_index(newSelectedIndexX, indexY, 1);
-						app_set_selected_index(newSelectedIndexX, indexY, 0);
-					}
-				}
-			}
-			else if (index == RESET_ALL_BUTTON_INDEX)
-			{
-				if (value == 0)
-					break;
-
-				for (int indexY = BOTTOM_ROWS_COUNT; indexY < BOTTOM_ROWS_COUNT + SELECT_ROWS_COUNT; indexY++)
-				{
-					// TODO: use constants
-					u8 buttonsPerSelection = 8 / selectionsCount[indexY];
-					for (u8 selection = 0; selection < selectionsCount[indexY]; selection++)
-					{
-						u8 dummyIndexX = (buttonsPerSelection * selection) + 1;
-						app_set_pre_selected_index(dummyIndexX, indexY, 1);
-						app_set_selected_index(dummyIndexX, indexY, 1);
-					}
-				}
-			}
-		}
-
-		// select rows
-		else if (index < BOTTOM_BUTTONS_COUNT + SELECT_BUTTONS_COUNT)
-		{
-			u8 indexX = index % BUTTONS_PER_ROW;
-			u8 indexY = (index - indexX) / BUTTONS_PER_ROW;
-
-			switch (indexX)
-			{
-			case RESET_BUTTON_INDEX_X:;
-				if (value == 0)
-					break;
-
-				// TODO: use constants
-				u8 buttonsPerSelection = 8 / selectionsCount[indexY];
-
-				for (u8 selection = 0; selection < selectionsCount[indexY]; selection++)
-				{
-					u8 dummyIndexX = (buttonsPerSelection * selection) + 1;
-					app_set_pre_selected_index(dummyIndexX, indexY, 1);
-					app_set_selected_index(dummyIndexX, indexY, 1);
-				}
-				break;
-
-			case SEND_BUTTON_INDEX_X:;
-				if (value == 0)
-					break;
-
-				for (u8 selection = 0; selection < selectionsCount[indexY]; selection++)
-				{
-					u8 newSelectedIndexX = preSelectedIndexX[indexY][selection];
-					if (newSelectedIndexX == 0)
-						continue;
-					app_set_pre_selected_index(newSelectedIndexX, indexY, 1);
-					app_set_selected_index(newSelectedIndexX, indexY, 0);
-				}
-				break;
-
-			default:
-				// if already selected break
-				for (int selection = 0; selection < SELECTIONS_PER_ROW; selection++)
-				{
-					if (indexX == selectedIndexX[indexY][selection])
-						return;
-				}
-
-				// light up button while pressing
-				float intensity = value != 0 ? ACTIVE : INACTIVE;
-				hal_plot_led(TYPEPAD, index, colorMapRed[index] * intensity, colorMapGrn[index] * intensity, colorMapBlu[index] * intensity);
-
-				// set pre selected index
-				if (value != 0)
-					app_set_pre_selected_index(indexX, indexY, 0);
-				break;
-			}
-		}
-
-		// top row
-		else if (index < BOTTOM_BUTTONS_COUNT + SELECT_BUTTONS_COUNT + TOP_BUTTONS_COUNT)
-		{
-			// ignore index 90 and 99
-		}
-	}
-	break;
+		app_handle_button_press(index, value);
+		break;
 
 	case TYPESETUP:
-	{
 		// example - light the setup LED
 		hal_plot_led(TYPESETUP, 0, value, value, value);
-	}
-	break;
+		break;
 	}
 }
 
@@ -389,33 +285,6 @@ void app_init_color_map()
 			colorMapBlu[index] = 0;
 		}
 	}
-
-	// manipulate colors for muti selection rows
-	/*
-	for (u8 indexY = 0; indexY < ROWS_COUNT; indexY++)
-	{
-		if (selectionsCount[indexY] < 2)
-			continue;
-
-		// TODO: use constant
-		u8 buttonsPerSelection = 8 / selectionsCount[indexY];
-		u8 deadButton = 8 % selectionsCount[indexY];
-
-		for (u8 selection = 0; selection < selectionsCount[indexY]; selection++)
-		{
-			float factor = 0.2 + (0.8 * (selection + 1) / selectionsCount[indexY]);
-			u8 indexXStart = 1 + (selection * buttonsPerSelection);
-			u8 indexXEnd = (selection + 1) * buttonsPerSelection;
-			for (u8 indexX = indexXStart; indexX <= indexXEnd; indexX++)
-			{
-				u8 index = indexY * BUTTONS_PER_ROW + indexX;
-				colorMapRed[index] = ((float)colorMapRed[index]) * factor;
-				colorMapGrn[index] = ((float)colorMapGrn[index]) * factor;
-				colorMapBlu[index] = ((float)colorMapBlu[index]) * factor;
-			}
-		}
-	}
-	*/
 }
 
 void app_init_leds()
@@ -426,14 +295,35 @@ void app_init_leds()
 	}
 }
 
-void app_set_selected_index(u8 indexX, u8 indexY, u8 reset)
+void app_reset_selected_index(u8 indexY, u8 selection)
 {
 	// logic
-	u8 selection = app_get_selection(indexX, indexY);
 	u8 oldSelectedIndexX = selectedIndexX[indexY][selection];
 	u8 oldSelectedIndex = indexY * BUTTONS_PER_ROW + oldSelectedIndexX;
 
-	u8 newSelectedIndexX = reset ? 0 : indexX;
+	u8 sendButtonIndexX = SEND_BUTTON_INDEX_X;
+	u8 sendButtonIndex = indexY * BUTTONS_PER_ROW + sendButtonIndexX;
+
+	selectedIndexX[indexY][selection] = 0;
+
+	// visualization
+	if (oldSelectedIndex != 0)
+		hal_plot_led(TYPEPAD, oldSelectedIndex, colorMapRed[oldSelectedIndex] * INACTIVE, colorMapGrn[oldSelectedIndex] * INACTIVE, colorMapBlu[oldSelectedIndex] * INACTIVE);
+
+	hal_plot_led(TYPEPAD, sendButtonIndex, colorMapRed[sendButtonIndex] * INACTIVE, colorMapGrn[sendButtonIndex] * INACTIVE, colorMapBlu[sendButtonIndex] * INACTIVE);
+		
+
+	// midi
+	if (oldSelectedIndex != 0)
+		hal_send_midi(DINMIDI, NOTEOFF, oldSelectedIndex, 0);
+}
+
+void app_set_selected_index(u8 indexX, u8 indexY, u8 selection)
+{
+	// logic
+	app_reset_selected_index(indexY, selection);
+
+	u8 newSelectedIndexX = indexX;
 	u8 newSelectedIndex = indexY * BUTTONS_PER_ROW + newSelectedIndexX;
 
 	u8 sendButtonIndexX = SEND_BUTTON_INDEX_X;
@@ -441,52 +331,185 @@ void app_set_selected_index(u8 indexX, u8 indexY, u8 reset)
 
 	selectedIndexX[indexY][selection] = newSelectedIndexX;
 
-	// visualization
-	if (oldSelectedIndex != 0)
-		hal_plot_led(TYPEPAD, oldSelectedIndex, colorMapRed[oldSelectedIndex] * INACTIVE, colorMapGrn[oldSelectedIndex] * INACTIVE, colorMapBlu[oldSelectedIndex] * INACTIVE);
-
 	if (newSelectedIndexX != 0)
 	{
 		hal_plot_led(TYPEPAD, newSelectedIndex, colorMapRed[newSelectedIndex] * ACTIVE, colorMapGrn[newSelectedIndex] * ACTIVE, colorMapBlu[newSelectedIndex] * ACTIVE);
 		hal_plot_led(TYPEPAD, sendButtonIndex, colorMapRed[newSelectedIndex] * ACTIVE, colorMapGrn[newSelectedIndex] * ACTIVE, colorMapBlu[newSelectedIndex] * ACTIVE);
 	}
-	else
-		hal_plot_led(TYPEPAD, sendButtonIndex, colorMapRed[sendButtonIndex] * INACTIVE, colorMapGrn[sendButtonIndex] * INACTIVE, colorMapBlu[sendButtonIndex] * INACTIVE);
 
 	// midi
-	hal_send_midi(DINMIDI, NOTEOFF, oldSelectedIndex, 0);
 	if (newSelectedIndex != 0)
 		hal_send_midi(DINMIDI, NOTEON, newSelectedIndex, 127);
 }
 
-void app_set_pre_selected_index(u8 indexX, u8 indexY, u8 reset)
+void app_reset_pre_selected_index(u8 indexY, u8 selection)
 {
 	// logic
-	u8 selection = app_get_selection(indexX, indexY);
 	u8 oldPreSelectedIndexX = preSelectedIndexX[indexY][selection];
 	u8 oldPreSelectedIndex = indexY * BUTTONS_PER_ROW + oldPreSelectedIndexX;
 
-	u8 newPreSelectedIndexX = reset ? 0 : indexX;
-	u8 newPreSelectedIndex = indexY * BUTTONS_PER_ROW + newPreSelectedIndexX;
-
-	if (oldPreSelectedIndexX == newPreSelectedIndexX)
-		return;
-
-	preSelectedIndexX[indexY][selection] = newPreSelectedIndexX;
+	preSelectedIndexX[indexY][selection] = 0;
 
 	// visualization
 	if (oldPreSelectedIndexX != 0 && oldPreSelectedIndexX != selectedIndexX[indexY][selection])
 		hal_plot_led(TYPEPAD, oldPreSelectedIndex, colorMapRed[oldPreSelectedIndex] * INACTIVE, colorMapGrn[oldPreSelectedIndex] * INACTIVE, colorMapBlu[oldPreSelectedIndex] * INACTIVE);
 }
 
+void app_set_pre_selected_index(u8 indexX, u8 indexY, u8 selection)
+{
+	// logic
+	app_reset_pre_selected_index(indexY, selection);
+
+	u8 newPreSelectedIndexX = indexX;
+	u8 newPreSelectedIndex = indexY * BUTTONS_PER_ROW + newPreSelectedIndexX;
+
+	preSelectedIndexX[indexY][selection] = newPreSelectedIndexX;
+}
+
 u8 app_get_selection(u8 indexX, u8 indexY)
 {
-	// TODO: use constants
+	// TODO: use constants 
 	u8 buttonsPerSelection = 8 / selectionsCount[indexY];
-	for (int selection = 0; selection < selectionsCount[indexY]; selection++)
+	for (u8 selection = 0; selection < selectionsCount[indexY]; selection++)
 	{
 		if (indexX > ((selection + 1) * buttonsPerSelection))
 			continue;
 		return selection;
+	}
+}
+
+// events
+
+void app_handle_button_press(u8 index, u8 value)
+{
+	u8 indexX = index % BUTTONS_PER_ROW;
+	u8 indexY = (index - indexX) / BUTTONS_PER_ROW;
+
+	// bottom row
+	if (index < BOTTOM_BUTTONS_COUNT)
+		app_handle_bottom_button_press(index, indexX, indexY, value);
+
+	// select rows
+	else if (index < BOTTOM_BUTTONS_COUNT + SELECT_BUTTONS_COUNT)
+		app_handle_selection_button_press(index, indexX, indexY, value);
+
+	// top row
+	else if (index < BOTTOM_BUTTONS_COUNT + SELECT_BUTTONS_COUNT + TOP_BUTTONS_COUNT)
+		app_handle_top_button_press(index, indexX, indexY, value);
+}
+
+void app_handle_bottom_button_press(u8 index, u8 indexX, u8 indexY, u8 value)
+{
+	switch (index)
+	{
+	case SEND_ALL_BUTTON_INDEX:
+		app_handle_send_all_button_press(index, indexX, indexY, value);
+		break;
+
+	case RESET_ALL_BUTTON_INDEX:
+		app_handle_reset_all_button_press(index, indexX, indexY, value);
+		break;
+	}
+}
+
+void app_handle_send_all_button_press(u8 index, u8 indexX, u8 indexY, u8 value)
+{
+	if (value == 0)
+		return;
+
+	for (int indexY = BOTTOM_ROWS_COUNT; indexY < BOTTOM_ROWS_COUNT + SELECT_ROWS_COUNT; indexY++)
+	{
+		for (u8 selection = 0; selection < selectionsCount[indexY]; selection++)
+		{
+			u8 newSelectedIndexX = preSelectedIndexX[indexY][selection];
+			if (newSelectedIndexX == 0)
+				continue;
+
+			app_reset_pre_selected_index(indexY, selection);
+			app_set_selected_index(newSelectedIndexX, indexY, selection);
+		}
+	}
+}
+
+void app_handle_reset_all_button_press(u8 index, u8 indexX, u8 indexY, u8 value)
+{
+	if (value == 0)
+		return;
+
+	for (int indexY = BOTTOM_ROWS_COUNT; indexY < BOTTOM_ROWS_COUNT + SELECT_ROWS_COUNT; indexY++)
+	{
+		for (u8 selection = 0; selection < selectionsCount[indexY]; selection++)
+		{
+			app_reset_pre_selected_index(indexY, selection);
+			app_reset_selected_index(indexY, selection);
+		}
+	}
+}
+
+void app_handle_top_button_press(u8 index, u8 indexX, u8 indexY, u8 value)
+{
+}
+
+void app_handle_selection_button_press(u8 index, u8 indexX, u8 indexY, u8 value)
+{
+	switch (indexX)
+	{
+	case RESET_BUTTON_INDEX_X:;
+		app_handle_reset_button_press(index, indexX, indexY, value);
+		break;
+
+	case SEND_BUTTON_INDEX_X:;
+		app_handle_send_button_press(index, indexX, indexY, value);
+		break;
+
+	default:
+		app_handle_value_button_press(index, indexX, indexY, value);
+		break;
+	}
+}
+
+void app_handle_value_button_press(u8 index, u8 indexX, u8 indexY, u8 value)
+{
+	// logic
+	for (int selection = 0; selection < SELECTIONS_PER_ROW; selection++)
+	{
+		if (indexX == selectedIndexX[indexY][selection])
+			return;
+	}
+
+	u8 selection = app_get_selection(indexX, indexY);
+
+	if (value != 0)
+		app_set_pre_selected_index(indexX, indexY, selection);
+
+	// visualization
+	float intensity = value != 0 ? ACTIVE : INACTIVE;
+	hal_plot_led(TYPEPAD, index, colorMapRed[index] * intensity, colorMapGrn[index] * intensity, colorMapBlu[index] * intensity);
+}
+
+void app_handle_send_button_press(u8 index, u8 indexX, u8 indexY, u8 value)
+{
+	if (value == 0)
+		return;
+
+	for (u8 selection = 0; selection < selectionsCount[indexY]; selection++)
+	{
+		u8 newSelectedIndexX = preSelectedIndexX[indexY][selection];
+		if (newSelectedIndexX == 0)
+			continue;
+
+		app_reset_pre_selected_index(indexY, selection);
+		app_set_selected_index(newSelectedIndexX, indexY, selection);
+	}
+}
+void app_handle_reset_button_press(u8 index, u8 indexX, u8 indexY, u8 value)
+{
+	if (value == 0)
+		return;
+
+	for (u8 selection = 0; selection < selectionsCount[indexY]; selection++)
+	{
+		app_reset_pre_selected_index(indexY, selection);
+		app_reset_selected_index(indexY, selection);
 	}
 }

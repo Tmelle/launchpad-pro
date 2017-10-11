@@ -6,6 +6,8 @@
         "memory": "c",
         "system_error": "c",
         "tuple": "c",
-        "type_traits": "c"
+        "type_traits": "c",
+        "algorithm": "c",
+        "bitset": "c"
     }
 }
