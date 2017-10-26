@@ -8,6 +8,7 @@
         "tuple": "c",
         "type_traits": "c",
         "algorithm": "c",
-        "bitset": "c"
+        "bitset": "c",
+        "ios": "cpp"
     }
 }

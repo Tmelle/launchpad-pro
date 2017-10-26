@@ -94,10 +94,10 @@
 
 // variables
 
-// colors    wht red grn blu amb wht cya mag yel wht
-u8 red[] = {63, 63, 0, 0, 63, 63, 0, 63, 63, 63};
-u8 grn[] = {63, 0, 63, 0, 31, 63, 63, 0, 63, 63};
-u8 blu[] = {63, 0, 0, 63, 0, 63, 63, 63, 0, 63};
+// colors  wht wht red amb yel grn cya blu mag wht
+u8 red[] = {63, 63, 63, 63, 63, 0, 0, 0, 63, 63};
+u8 grn[] = {63, 63, 0, 31, 63, 63, 63, 0, 0, 63};
+u8 blu[] = {63, 63, 0, 0, 0, 0, 63, 63, 63, 63};
 
 u8 colorMapRed[ROWS_COUNT * BUTTONS_PER_ROW];
 u8 colorMapGrn[ROWS_COUNT * BUTTONS_PER_ROW];
@@ -106,7 +106,7 @@ u8 colorMapBlu[ROWS_COUNT * BUTTONS_PER_ROW];
 u8 preSelectedIndexX[ROWS_COUNT][SELECTIONS_PER_ROW];
 u8 selectedIndexX[ROWS_COUNT][SELECTIONS_PER_ROW];
 
-u8 selectionsCount[ROWS_COUNT] = {0, 1, 1, 1, 1, 1, 1, 2, 2, 0};
+u8 selectionsCount[ROWS_COUNT] = {0, 2, 2, 2, 2, 1, 1, 1, 1, 0};
 
 void app_surface_event(u8 type, u8 index, u8 value)
 {
@@ -221,49 +221,15 @@ void app_init_color_map()
 		u8 indexX = index % BUTTONS_PER_ROW;
 		u8 indexY = (index - indexX) / BUTTONS_PER_ROW;
 
+		// bottom buttons
 		if (index < BOTTOM_BUTTONS_COUNT)
 		{
 			colorMapRed[index] = index == SEND_ALL_BUTTON_INDEX || index == RESET_ALL_BUTTON_INDEX ? 63 : 0;
 			colorMapGrn[index] = index == SEND_ALL_BUTTON_INDEX || index == RESET_ALL_BUTTON_INDEX ? 63 : 0;
 			colorMapBlu[index] = index == SEND_ALL_BUTTON_INDEX || index == RESET_ALL_BUTTON_INDEX ? 63 : 0;
 		}
-		else if (index < BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT)
-		{
-			colorMapRed[index] = red[indexX];
-			colorMapGrn[index] = grn[indexX];
-			colorMapBlu[index] = blu[indexX];
-		}
-		else if (index < BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT + GOBO_BUTTONS_COUNT)
-		{
-			if (indexX != RESET_BUTTON_INDEX_X && indexX != SEND_BUTTON_INDEX_X)
-			{
-				colorMapRed[index] = 0;
-				colorMapGrn[index] = 63;
-				colorMapBlu[index] = 63;
-			}
-			else
-			{
-				colorMapRed[index] = 63;
-				colorMapGrn[index] = 63;
-				colorMapBlu[index] = 63;
-			}
-		}
-		else if (index < BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT + GOBO_BUTTONS_COUNT + FOCUS_BUTTONS_COUNT)
-		{
-			if (indexX != RESET_BUTTON_INDEX_X && indexX != SEND_BUTTON_INDEX_X)
-			{
-				colorMapRed[index] = 0;
-				colorMapGrn[index] = 63;
-				colorMapBlu[index] = 31;
-			}
-			else
-			{
-				colorMapRed[index] = 63;
-				colorMapGrn[index] = 63;
-				colorMapBlu[index] = 63;
-			}
-		}
-		else if (index < BOTTOM_BUTTONS_COUNT + COLOR_BUTTONS_COUNT + GOBO_BUTTONS_COUNT + FOCUS_BUTTONS_COUNT + POSITION_BUTTONS_COUNT)
+		// position buttons
+		else if (index < BOTTOM_BUTTONS_COUNT + POSITION_BUTTONS_COUNT)
 		{
 			if (indexX != RESET_BUTTON_INDEX_X && indexX != SEND_BUTTON_INDEX_X)
 			{
@@ -278,6 +244,46 @@ void app_init_color_map()
 				colorMapBlu[index] = 63;
 			}
 		}
+		// focus buttons
+		else if (index < BOTTOM_BUTTONS_COUNT + POSITION_BUTTONS_COUNT + FOCUS_BUTTONS_COUNT)
+		{
+			if (indexX != RESET_BUTTON_INDEX_X && indexX != SEND_BUTTON_INDEX_X)
+			{
+				colorMapRed[index] = 0;
+				colorMapGrn[index] = 63;
+				colorMapBlu[index] = 31;
+			}
+			else
+			{
+				colorMapRed[index] = 63;
+				colorMapGrn[index] = 63;
+				colorMapBlu[index] = 63;
+			}
+		}
+		// gobo buttons
+		else if (index < BOTTOM_BUTTONS_COUNT + POSITION_BUTTONS_COUNT + FOCUS_BUTTONS_COUNT + GOBO_BUTTONS_COUNT)
+		{
+			if (indexX != RESET_BUTTON_INDEX_X && indexX != SEND_BUTTON_INDEX_X)
+			{
+				colorMapRed[index] = 0;
+				colorMapGrn[index] = 63;
+				colorMapBlu[index] = 63;
+			}
+			else
+			{
+				colorMapRed[index] = 63;
+				colorMapGrn[index] = 63;
+				colorMapBlu[index] = 63;
+			}
+		}
+		// color buttons
+		else if (index < BOTTOM_BUTTONS_COUNT + POSITION_BUTTONS_COUNT + FOCUS_BUTTONS_COUNT + GOBO_BUTTONS_COUNT + COLOR_BUTTONS_COUNT)
+		{
+			colorMapRed[index] = red[indexX];
+			colorMapGrn[index] = grn[indexX];
+			colorMapBlu[index] = blu[indexX];
+		}
+		// top buttons
 		else if (index < BOTTOM_BUTTONS_COUNT + SELECT_BUTTONS_COUNT + TOP_BUTTONS_COUNT)
 		{
 			colorMapRed[index] = 0;
@@ -307,15 +313,16 @@ void app_reset_selected_index(u8 indexY, u8 selection)
 	selectedIndexX[indexY][selection] = 0;
 
 	// visualization
-	if (oldSelectedIndex != 0)
+	if (oldSelectedIndexX != 0)
 		hal_plot_led(TYPEPAD, oldSelectedIndex, colorMapRed[oldSelectedIndex] * INACTIVE, colorMapGrn[oldSelectedIndex] * INACTIVE, colorMapBlu[oldSelectedIndex] * INACTIVE);
 
 	hal_plot_led(TYPEPAD, sendButtonIndex, colorMapRed[sendButtonIndex] * INACTIVE, colorMapGrn[sendButtonIndex] * INACTIVE, colorMapBlu[sendButtonIndex] * INACTIVE);
-		
 
 	// midi
-	if (oldSelectedIndex != 0)
-		hal_send_midi(DINMIDI, NOTEOFF, oldSelectedIndex, 0);
+	if (oldSelectedIndexX != 0)
+	{
+		app_send_button_press(oldSelectedIndex);
+	}
 }
 
 void app_set_selected_index(u8 indexX, u8 indexY, u8 selection)
@@ -334,12 +341,37 @@ void app_set_selected_index(u8 indexX, u8 indexY, u8 selection)
 	if (newSelectedIndexX != 0)
 	{
 		hal_plot_led(TYPEPAD, newSelectedIndex, colorMapRed[newSelectedIndex] * ACTIVE, colorMapGrn[newSelectedIndex] * ACTIVE, colorMapBlu[newSelectedIndex] * ACTIVE);
-		hal_plot_led(TYPEPAD, sendButtonIndex, colorMapRed[newSelectedIndex] * ACTIVE, colorMapGrn[newSelectedIndex] * ACTIVE, colorMapBlu[newSelectedIndex] * ACTIVE);
+
+		int r = 0;
+		int g = 0;
+		int b = 0;
+		u8 count = 0;
+
+		for (u8 selection = 0; selection < selectionsCount[indexY]; selection++)
+		{
+			if (selectedIndexX[indexY][selection] == 0)
+				continue;
+
+			u8 selectedIndex = indexY * ROWS_COUNT + selectedIndexX[indexY][selection];
+
+			r += colorMapRed[selectedIndex];
+			g += colorMapGrn[selectedIndex];
+			b += colorMapBlu[selectedIndex];
+			count++;
+		}
+
+		r = r / count;
+		g = g / count;
+		b = b / count;
+
+		hal_plot_led(TYPEPAD, sendButtonIndex, r * ACTIVE, g * ACTIVE, b * ACTIVE);
 	}
 
 	// midi
-	if (newSelectedIndex != 0)
-		hal_send_midi(DINMIDI, NOTEON, newSelectedIndex, 127);
+	if (newSelectedIndexX != 0)
+	{
+		app_send_button_press(newSelectedIndex);
+	}
 }
 
 void app_reset_pre_selected_index(u8 indexY, u8 selection)
@@ -366,6 +398,15 @@ void app_set_pre_selected_index(u8 indexX, u8 indexY, u8 selection)
 	preSelectedIndexX[indexY][selection] = newPreSelectedIndexX;
 }
 
+void app_send_button_press(u8 index)
+{
+	u8 dot2Index = app_convert_to_dot2_index(index);
+	hal_send_midi(DINMIDI, NOTEON, dot2Index, 127);
+	hal_send_midi(DINMIDI, NOTEON, dot2Index, 0);
+	hal_send_midi(USBMIDI, NOTEON, dot2Index, 127);
+	hal_send_midi(USBMIDI, NOTEON, dot2Index, 0);
+}
+
 u8 app_get_selection(u8 indexX, u8 indexY)
 {
 	// TODO: use constants 
@@ -376,6 +417,17 @@ u8 app_get_selection(u8 indexX, u8 indexY)
 			continue;
 		return selection;
 	}
+}
+
+u8 app_convert_to_dot2_index(u8 internalIndex)
+{
+	u8 indexX = internalIndex % BUTTONS_PER_ROW;
+	u8 indexY = (internalIndex - indexX) / BUTTONS_PER_ROW;
+
+	u8 dot2IndexX = BUTTONS_PER_ROW - indexX - 1;
+	u8 dot2IndexY = ROWS_COUNT - indexY - 1;
+	u8 dot2Index = dot2IndexY * 10 + dot2IndexX;
+	return dot2Index;
 }
 
 // events

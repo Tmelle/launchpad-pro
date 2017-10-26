@@ -169,9 +169,11 @@ void app_reset_selected_index(u8 indexY, u8 selection);
 void app_set_selected_index(u8 indexX, u8 indexY, u8 selection);
 void app_reset_pre_selected_index(u8 indexY, u8 selection);
 void app_set_pre_selected_index(u8 indexX, u8 indexY, u8 selection);
-
+void app_send_button_press(u8 index);
 
 u8 app_get_selection(u8 indexX, u8 indexY);
+u8 app_convert_to_dot2_index(u8 internalIndex);
+
 // events 
 void app_handle_button_press(u8 index, u8 value);
 
