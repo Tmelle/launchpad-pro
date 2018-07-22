@@ -49,16 +49,12 @@ void app_surface_event(u8 type, u8 index, u8 value)
 	{
 		case  TYPEPAD:
 		{
+			u8 data[] = {0xF0, 0x7F, 0x7F, 0x02, 0x7F, 0x06, 0x00, 0x01, 0x44, 0x44, 0xF7};
 			// example - light / extinguish pad LEDs, send MIDI
 			hal_plot_led(TYPEPAD, index, value, value, value);
-			hal_send_midi(DINMIDI, NOTEON | 0, index, value);
-		}
-		break;
-
-		case TYPESETUP:
-		{
-			// example - light the setup LED
-			hal_plot_led(TYPESETUP, 0, value, value, value);
+			hal_send_sysex(USBMIDI, data, 11);
+			hal_send_sysex(USBSTANDALONE, data, 11);
+			hal_send_sysex(DINMIDI, data, 11);
 		}
 		break;
 	}
@@ -127,9 +123,6 @@ void app_timer_event()
 	if (++ms >= TICK_MS)
 	{
 		ms = 0;
-		
-		// send a clock pulse up the USB
-		hal_send_midi(USBSTANDALONE, MIDITIMINGCLOCK, 0, 0);
 	}
 }
 
